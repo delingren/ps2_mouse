@@ -23,11 +23,12 @@
 #include "src/hid.h"
 #include "src/ps2.h"
 
-// Clock pin needs to be an interrupt pin. Here's a list of such pins on avr MCUs
+// Clock pin needs to be an interrupt pin. Here's a list of such pins on avr
+// MCUs
 // https://www.arduino.cc/reference/en/language/functions/external-interrupts/attachinterrupt/
 
-const int CLK_PIN = 7;
-const int DAT_PIN = 8;
+const int CLK_PIN = 2;
+const int DAT_PIN = 3;
 
 int8_t to_hid_value(bool overflow, bool negative, uint8_t data) {
   // HID uses [-127, 127]. I.e. an 8-bit signed integer, except -128.
@@ -70,6 +71,14 @@ void byte_received(uint8_t data) {
   // Each packet consists of 3 bytes, represented by a 32 bit unsigned int.
   static uint32_t buffer = 0;
   static int index = 0;
+
+  if (index == 0 && (data & 0x08) == 0) {
+    Serial.println("Bad byte 0. Discarding packet.");
+    index = 0;
+    buffer = 0;
+    return;
+  }
+
   buffer |= ((uint32_t)data) << index;
   index += 8;
   if (index == 24) {
@@ -81,9 +90,11 @@ void byte_received(uint8_t data) {
 
 void setup() {
   hid::init();
-
+  Serial.begin(115200);
   ps2::begin(CLK_PIN, DAT_PIN, byte_received);
+  delay(100);
   ps2::reset();
+  delay(100);
   ps2::enable();
 }
 

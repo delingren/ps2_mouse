@@ -21,6 +21,8 @@
 // SOFTWARE.
 
 #include <Arduino.h>
+#include "ps2.h"
+
 namespace ps2 {
 // Sample code for interacting with a PS2 mouse from a mega32u4.
 // Writing is synchronous. Async write is hard for the client to handle.
@@ -36,9 +38,7 @@ void pull_low(uint8_t pin) {
   digitalWrite(pin, LOW);
 }
 
-void pull_high(uint8_t pin) {
-  pinMode(pin, INPUT_PULLUP);
-}
+void pull_high(uint8_t pin) { pinMode(pin, INPUT_PULLUP); }
 
 uint8_t read_bit() {
   pinMode(data_pin_, INPUT);
@@ -78,6 +78,8 @@ void disable_interrupt() {
   receive_buffer = 0;
   parity = 0;
 }
+
+void enable_interrupt() { sei(); }
 
 void bit_received() {
   int clock = digitalRead(clock_pin_);
@@ -157,6 +159,7 @@ uint8_t read_byte() {
 
   return data;
 }
+}  // namespace
 
 bool write_byte(uint8_t data) {
   // Bring CLK low for 100 us.
@@ -210,7 +213,6 @@ bool write_byte(uint8_t data) {
     return false;
   }
 }
-}  // namespace
 
 void begin(uint8_t clock_pin, uint8_t data_pin,
            void (*byte_received)(uint8_t)) {
@@ -224,8 +226,7 @@ void begin(uint8_t clock_pin, uint8_t data_pin,
   attachInterrupt(digitalPinToInterrupt(clock_pin_), bit_received, FALLING);
 }
 
-bool ps2_command(u16 command, uint8_t* args, uint8_t* result) {
-  uint8_t oldSREG = SREG;
+bool ps2_command(uint16_t command, uint8_t* args, uint8_t* result) {
   disable_interrupt();
 
   unsigned int send = (command >> 12) & 0x0F;
@@ -243,8 +244,14 @@ bool ps2_command(u16 command, uint8_t* args, uint8_t* result) {
     }
   }
 
-  SREG = oldSREG;
+  enable_interrupt();
   return true;
 }
+
+void reset() { ps2_command(PSMOUSE_CMD_RESET_BAT, nullptr, nullptr); }
+
+void enable() { ps2_command(PSMOUSE_CMD_ENABLE, nullptr, nullptr); }
+
+void disable() { ps2_command(PSMOUSE_CMD_DISABLE, nullptr, nullptr); }
 
 };  // namespace ps2
